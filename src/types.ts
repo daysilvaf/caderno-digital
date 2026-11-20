@@ -82,6 +82,7 @@ export interface Asset {
   sectionId?: string;
   pageCount?: number;
   createdAt: number;
+  updatedAt?: number;
 }
 
 export const PAPER_COLORS: Record<Exclude<PaperColor, 'custom'>, { bg: string; ink: string; line: string; label: string }> = {

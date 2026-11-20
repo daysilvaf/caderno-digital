@@ -10,8 +10,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.45.4",
     "dexie": "^4.4.7",
     "dexie-react-hooks": "^1.1.7",
+    "jspdf": "^2.5.2",
+    "jszip": "^3.10.1",
     "nanoid": "^5.1.16",
     "pdfjs-dist": "^4.4.168",
     "perfect-freehand": "^1.2.3",

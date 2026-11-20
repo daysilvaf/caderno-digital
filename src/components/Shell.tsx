@@ -1,5 +1,6 @@
 import { Icon } from '../icons';
 import { go } from '../router';
+import { SyncBadge } from './SyncBadge';
 
 /** Moldura das telas de organização (índice, favoritos, biblioteca, busca, revisão). */
 export function Shell({ title, children, actions }: { title: string; children: React.ReactNode; actions?: React.ReactNode }) {
@@ -27,6 +28,7 @@ export function Shell({ title, children, actions }: { title: string; children: R
         <button className="icon-btn" onClick={() => go({ name: 'revisao' })} title="Revisão">
           <Icon name="brain" />
         </button>
+        <SyncBadge />
       </header>
       <div className="sheet-scroll">
         <div className="sheet">{children}</div>

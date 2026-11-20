@@ -7,6 +7,7 @@ export type Route =
   | { name: 'biblioteca' }
   | { name: 'revisao' }
   | { name: 'busca'; q?: string }
+  | { name: 'ajustes' }
   | { name: 'pagina'; sectionId: string; pageId?: string };
 
 /*
@@ -29,10 +30,20 @@ function load(): Route {
 
 let current: Route = load();
 
+export function lastPage(): Extract<Route, { name: 'pagina' }> | null {
+  try {
+    const raw = localStorage.getItem('caderno:ultima-pagina');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function go(r: Route, _replace = false) {
   current = r;
   try {
     localStorage.setItem(KEY, JSON.stringify(r));
+    if (r.name === 'pagina') localStorage.setItem('caderno:ultima-pagina', JSON.stringify(r));
   } catch {
     /* sem armazenamento */
   }

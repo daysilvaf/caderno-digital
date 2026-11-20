@@ -34,6 +34,8 @@ const P: Record<string, string> = {
   search: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.35-4.35',
   check: 'M20 6L9 17l-5-5',
   x: 'M18 6L6 18M6 6l12 12',
+  cloud: 'M17.5 19H8a5 5 0 1 1 1.4-9.8A6 6 0 0 1 21 11.5a4 4 0 0 1-3.5 7.5z',
+  cloudOff: 'M2 2l20 20M17.5 19H8a5 5 0 0 1-2.3-9.4M10 6.3A6 6 0 0 1 21 11.5a4 4 0 0 1-1.2 5.9',
 };
 
 export function Icon({ name, ...rest }: { name: keyof typeof P | string } & SVGProps<SVGSVGElement>) {

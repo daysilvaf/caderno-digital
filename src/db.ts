@@ -73,23 +73,33 @@ export function newPage(sectionId: string, order: number, template: PageTemplate
   };
 }
 
-/** Cria o caderno da matéria na primeira abertura. */
+/** Marca a transação atual como "não é edição da usuária" (semente ou vinda da nuvem). */
+export function tagTransaction(tag: '__seed' | '__remote') {
+  const tx = Dexie.currentTransaction as unknown as Record<string, boolean> | null;
+  if (tx) tx[tag] = true;
+}
+
+/**
+ * Cria o caderno da matéria na primeira abertura.
+ * Ids fixos e data 0: assim dois aparelhos criam o mesmo caderno inicial,
+ * e qualquer edição real (de qualquer aparelho) vale mais que ele na sincronização.
+ */
 export async function ensureSeed() {
   await db.transaction('rw', db.notebooks, db.sections, db.pages, async () => {
     if (await db.notebooks.get(NOTEBOOK_ID)) return;
-    const now = Date.now();
+    tagTransaction('__seed');
     await db.notebooks.add({
       id: NOTEBOOK_ID,
       title: 'Química dos Produtos Naturais',
       subtitle: 'Caderno Digital',
       coverColor: '#b9a7e8',
       defaultTemplate: DEFAULT_TEMPLATE,
-      createdAt: now,
-      updatedAt: now,
+      createdAt: 0,
+      updatedAt: 0,
     });
     for (let i = 0; i < AULAS.length; i++) {
       const [number, title] = AULAS[i];
-      const id = nanoid();
+      const id = 'aula-' + number.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-$/, '');
       await db.sections.add({
         id,
         notebookId: NOTEBOOK_ID,
@@ -99,9 +109,9 @@ export async function ensureSeed() {
         status: 'nao-iniciada',
         favorite: 0,
         tags: [],
-        updatedAt: now,
+        updatedAt: 0,
       });
-      await db.pages.add(newPage(id, 0, DEFAULT_TEMPLATE));
+      await db.pages.add({ ...newPage(id, 0, DEFAULT_TEMPLATE), id: `${id}-p1`, createdAt: 0, updatedAt: 0 });
     }
   });
 }

@@ -10,6 +10,8 @@ import { numberColor } from './IndexView';
 import { PaperCanvas } from './PaperCanvas';
 import { TemplatePopover } from './TemplatePopover';
 import { TagsPopover } from './TagsPopover';
+import { ExportDialog } from './ExportDialog';
+import { SyncBadge } from './SyncBadge';
 import { importPdf } from '../pdf';
 import { useOutside } from './useOutside';
 import type { EditorApi, EditorStatus } from '../editor/Editor';
@@ -48,6 +50,7 @@ export function NotebookView({ sectionId, pageId }: { sectionId: string; pageId?
   const [zoom, setZoom] = useState<number | 'fit'>(() => loadPref('zoom', 'fit'));
   const [tplOpen, setTplOpen] = useState(false);
   const [tagsOpen, setTagsOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const [pdfProgress, setPdfProgress] = useState<{ name: string; done: number; total: number } | null>(null);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const saving = useSaving();
@@ -225,6 +228,11 @@ export function NotebookView({ sectionId, pageId }: { sectionId: string; pageId?
         <button className={`icon-btn ${tplOpen ? 'active' : ''}`} onClick={() => setTplOpen((o) => !o)} title="Modelo da página">
           <Icon name="paper" />
         </button>
+        <button className="icon-btn" onClick={() => setExportOpen(true)} title="Exportar, imprimir">
+          <svg viewBox="0 0 24 24" width={19} height={19} fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M12 3v12M7 8l5-5 5 5M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" />
+          </svg>
+        </button>
         <span className="sep hide-sm" />
         <button className="icon-btn hide-sm" onClick={() => zoomStep(-1)} title="Diminuir zoom (Ctrl -)">
           <Icon name="minus" />
@@ -251,7 +259,9 @@ export function NotebookView({ sectionId, pageId }: { sectionId: string; pageId?
         <span className={`save-indicator hide-sm ${saving ? 'saving' : ''}`} style={{ marginLeft: 6 }}>
           <span className="dot" /> {saving ? 'Salvando…' : 'Salvo'}
         </span>
+        <SyncBadge />
         {tplOpen && <TemplatePopover page={current} onClose={() => setTplOpen(false)} right={110} />}
+        {exportOpen && <ExportDialog section={section} current={current} onClose={() => setExportOpen(false)} />}
         {tagsOpen && <TagsPopover page={current} onClose={() => setTagsOpen(false)} right={150} />}
       </header>
 

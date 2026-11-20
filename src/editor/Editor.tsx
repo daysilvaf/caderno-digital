@@ -1,6 +1,7 @@
 import { nanoid } from 'nanoid';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
-import { updatePage } from '../db';
+import { db, updatePage } from '../db';
+import { onRemotePageChange } from '../sync';
 import { paperColors } from '../paper';
 import type { Page } from '../types';
 import type { El, ImageEl, LinkEl, ShapeEl, StrokeEl, TextEl } from './elements';
@@ -154,6 +155,23 @@ export const Editor = forwardRef<EditorApi, Props>(function Editor({ page, scale
     const t = window.setTimeout(persist, 450);
     return () => window.clearTimeout(t);
   }, [elements, persist]);
+
+  // Página alterada em outro aparelho: recarrega se não houver edição local pendente.
+  useEffect(
+    () =>
+      onRemotePageChange(async (id) => {
+        if (id !== pageRef.current.id || dirty.current || ix.current.kind !== 'none' || editing) return;
+        const fresh = await db.pages.get(id);
+        if (!fresh) return;
+        const els = (fresh.elements as El[]) ?? [];
+        elsRef.current = els;
+        past.current = [];
+        future.current = [];
+        setSelected(new Set());
+        setElements(els);
+      }),
+    [editing],
+  );
 
   useEffect(() => {
     const flush = () => persist();

@@ -6,6 +6,8 @@ import { NotebookView } from './components/NotebookView';
 import { LibraryView } from './components/LibraryView';
 import { ReviewView } from './components/ReviewView';
 import { SearchView } from './components/SearchView';
+import { SettingsView } from './components/SettingsView';
+import { initSync } from './sync';
 import { ensureSeed, requestPersistence } from './db';
 import { useRoute } from './router';
 
@@ -16,7 +18,10 @@ export default function App() {
 
   useEffect(() => {
     ensureSeed()
-      .then(() => setReady(true))
+      .then(() => {
+        setReady(true);
+        initSync();
+      })
       .catch((e) => setError(String(e)));
     requestPersistence();
   }, []);
@@ -35,6 +40,8 @@ export default function App() {
       return <LibraryView />;
     case 'revisao':
       return <ReviewView />;
+    case 'ajustes':
+      return <SettingsView />;
     case 'busca':
       return <SearchView initial={route.q} />;
     default:

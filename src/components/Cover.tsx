@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, NOTEBOOK_ID, updateNotebook } from '../db';
 import { Icon } from '../icons';
-import { go } from '../router';
+import { go, lastPage } from '../router';
 
 const COVER_COLORS = ['#b9a7e8', '#d7b8f3', '#f4b8cf', '#a9cdf2', '#b4e3c4', '#f5e1a4', '#3a3a42', '#f6f2ea'];
 
@@ -45,6 +45,12 @@ export function Cover() {
     const [sections, pages] = await Promise.all([db.sections.count(), db.pages.count()]);
     return { sections, pages };
   });
+  const resume = useLiveQuery(async () => {
+    const r = lastPage();
+    if (!r) return null;
+    const s = await db.sections.get(r.sectionId);
+    return s ? { r, label: `${s.number} · ${s.title}` } : null;
+  });
   if (!nb) return null;
   const dark = nb.coverColor === '#3a3a42';
 
@@ -67,7 +73,12 @@ export function Cover() {
         <div className="cover-side">
           <h2>Abrir</h2>
           <nav className="cover-nav">
-            <button className="btn primary" onClick={() => go({ name: 'indice' })}>
+            {resume && (
+              <button className="btn primary resume" onClick={() => go(resume.r)}>
+                <Icon name="book" /> <span>Continuar de onde parei<small>{resume.label}</small></span>
+              </button>
+            )}
+            <button className={`btn ${resume ? '' : 'primary'}`} onClick={() => go({ name: 'indice' })}>
               <Icon name="list" /> Índice das aulas
             </button>
             <button className="btn" onClick={() => go({ name: 'favoritos' })}>
@@ -81,6 +92,9 @@ export function Cover() {
             </button>
             <button className="btn" onClick={() => go({ name: 'busca' })}>
               <Icon name="search" /> Buscar no caderno
+            </button>
+            <button className="btn" onClick={() => go({ name: 'ajustes' })}>
+              <Icon name="cloud" /> Sincronização e backup
             </button>
           </nav>
 
