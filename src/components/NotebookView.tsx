@@ -10,6 +10,10 @@ import { numberColor } from './IndexView';
 import { PaperCanvas } from './PaperCanvas';
 import { TemplatePopover } from './TemplatePopover';
 import { useOutside } from './useOutside';
+import type { EditorApi, EditorStatus } from '../editor/Editor';
+import { Editor } from '../editor/Editor';
+import { Toolstrip } from '../editor/Toolstrip';
+import { useToolState } from '../editor/tools';
 
 const ZOOMS = [0.25, 0.33, 0.5, 0.67, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4];
 
@@ -42,6 +46,10 @@ export function NotebookView({ sectionId, pageId }: { sectionId: string; pageId?
   const [zoom, setZoom] = useState<number | 'fit'>(() => loadPref('zoom', 'fit'));
   const [tplOpen, setTplOpen] = useState(false);
   const saving = useSaving();
+  const { tool, setTool, settings, setSettings } = useToolState();
+  const editorApi = useRef<EditorApi>(null);
+  const [status, setStatus] = useState<EditorStatus>({ canUndo: false, canRedo: false, selected: 0, canPaste: false });
+  const onStatus = useCallback((s: EditorStatus) => setStatus(s), []);
   const areaRef = useRef<HTMLDivElement>(null);
   const [areaW, setAreaW] = useState(800);
 
@@ -218,6 +226,8 @@ export function NotebookView({ sectionId, pageId }: { sectionId: string; pageId?
         {tplOpen && <TemplatePopover page={current} onClose={() => setTplOpen(false)} right={110} />}
       </header>
 
+      <Toolstrip tool={tool} setTool={setTool} settings={settings} setSettings={setSettings} status={status} api={editorApi} />
+
       <div className="nb-body">
         <aside className={`sidebar ${sidebar ? '' : 'closed'}`}>
           <div className="sidebar-tabs">
@@ -250,6 +260,16 @@ export function NotebookView({ sectionId, pageId }: { sectionId: string; pageId?
           <div className="canvas-inner">
             <div className="paper" style={{ width: current.width * scale, height: current.height * scale }}>
               <PaperCanvas template={current.template} width={current.width} height={current.height} scale={scale} />
+              <Editor
+                key={current.id}
+                ref={editorApi}
+                page={current}
+                scale={scale}
+                tool={tool}
+                settings={settings}
+                onStatus={onStatus}
+                onToolChange={setTool}
+              />
             </div>
           </div>
         </main>
@@ -290,7 +310,10 @@ function Thumbnails({ pages, currentId, sectionId }: { pages: Page[]; currentId:
           }}
         >
           <button style={{ display: 'block', width: '100%' }} onClick={() => go({ name: 'pagina', sectionId, pageId: p.id })} aria-label={`Página ${i + 1}`}>
-            <PaperCanvas className="thumb-img" template={p.template} width={p.width} height={p.height} scale={180 / p.width} style={{ width: '100%', height: 'auto' }} />
+            <span className="thumb-stack">
+              <PaperCanvas className="thumb-img" template={p.template} width={p.width} height={p.height} scale={180 / p.width} style={{ width: '100%', height: 'auto' }} />
+              {p.thumbnail ? <img className="thumb-ink" src={p.thumbnail} alt="" /> : null}
+            </span>
           </button>
           <div className="thumb-badges">
             {p.favorite ? <Icon name="star" fill="currentColor" /> : null}

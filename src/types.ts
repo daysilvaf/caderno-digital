@@ -18,8 +18,10 @@ export interface PageTemplate {
   pattern: PaperPattern;
 }
 
-/** Elementos desenhados/inseridos na página. O editor completo chega no passo 2. */
-export type PageElement = Record<string, unknown> & { id: string; type: string };
+import type { El } from './editor/elements';
+
+/** Elementos desenhados/inseridos na página (traços, formas, textos). */
+export type PageElement = El;
 
 export interface Notebook {
   id: string;

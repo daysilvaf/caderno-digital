@@ -69,7 +69,10 @@ function PageGrid({ pages, byId, empty }: { pages: Page[]; byId: Map<string, Sec
         const s = byId.get(p.sectionId);
         return (
           <button key={p.id} className="fav-card" onClick={() => go({ name: 'pagina', sectionId: p.sectionId, pageId: p.id })}>
-            <PaperCanvas template={p.template} width={p.width} height={p.height} scale={150 / p.width} style={{ width: '100%', height: 'auto', borderRadius: 4 }} />
+            <span className="thumb-stack">
+              <PaperCanvas template={p.template} width={p.width} height={p.height} scale={150 / p.width} style={{ width: '100%', height: 'auto', borderRadius: 4 }} />
+              {p.thumbnail ? <img className="thumb-ink" src={p.thumbnail} alt="" /> : null}
+            </span>
             <div className="t">{p.title || `Página ${p.order + 1}`}</div>
             <div className="s">
               {s?.number} · {s?.title}

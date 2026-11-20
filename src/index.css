@@ -825,3 +825,150 @@ select {
     display: none !important;
   }
 }
+
+/* ---------- Editor ---------- */
+.editor {
+  position: absolute;
+  inset: 0;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.editor canvas {
+  position: absolute;
+  inset: 0;
+}
+.text-editor {
+  position: absolute;
+  background: rgba(185, 167, 232, 0.08);
+  border: 1px dashed var(--lavanda);
+  border-radius: 4px;
+  outline: none;
+  resize: none;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+  caret-color: var(--lavanda);
+  z-index: 5;
+}
+.thumb-stack {
+  position: relative;
+  display: block;
+}
+.thumb-ink {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.fav-card .thumb-ink {
+  box-shadow: none;
+}
+.toolstrip {
+  flex: none;
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.toolstrip .group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+}
+.toolstrip .options {
+  gap: 6px;
+}
+.toolstrip .sep {
+  width: 1px;
+  height: 22px;
+  background: var(--border);
+  margin: 0 6px;
+  flex: none;
+}
+.toolstrip .spacer {
+  flex: 1;
+  min-width: 8px;
+}
+.swatches.tight {
+  gap: 5px;
+  flex-wrap: nowrap;
+}
+.swatch.sm {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+.size-dots {
+  display: flex;
+  gap: 2px;
+}
+.size-dots button {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+}
+.size-dots button.on {
+  background: var(--panel-2);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+.size-dots span {
+  border-radius: 50%;
+  display: block;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
+}
+.slider {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.slider input {
+  width: 80px;
+  accent-color: var(--lavanda);
+}
+.slider span {
+  min-width: 30px;
+}
+.seg {
+  display: flex;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 2px;
+}
+.seg button {
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.seg button.on {
+  background: var(--panel-2);
+  color: var(--text);
+}
+.mini-select {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 5px 8px;
+}
+.hint {
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.menu .hint {
+  white-space: normal;
+  font-size: 12px;
+}
