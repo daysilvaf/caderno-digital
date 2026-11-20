@@ -9,6 +9,8 @@ import type { Page } from '../types';
 import { numberColor } from './IndexView';
 import { PaperCanvas } from './PaperCanvas';
 import { TemplatePopover } from './TemplatePopover';
+import { TagsPopover } from './TagsPopover';
+import { importPdf } from '../pdf';
 import { useOutside } from './useOutside';
 import type { EditorApi, EditorStatus } from '../editor/Editor';
 import { Editor } from '../editor/Editor';
@@ -45,10 +47,13 @@ export function NotebookView({ sectionId, pageId }: { sectionId: string; pageId?
   const [sideTab, setSideTab] = useState<'paginas' | 'aulas'>('paginas');
   const [zoom, setZoom] = useState<number | 'fit'>(() => loadPref('zoom', 'fit'));
   const [tplOpen, setTplOpen] = useState(false);
+  const [tagsOpen, setTagsOpen] = useState(false);
+  const [pdfProgress, setPdfProgress] = useState<{ name: string; done: number; total: number } | null>(null);
+  const [pdfError, setPdfError] = useState<string | null>(null);
   const saving = useSaving();
   const { tool, setTool, settings, setSettings } = useToolState();
   const editorApi = useRef<EditorApi>(null);
-  const [status, setStatus] = useState<EditorStatus>({ canUndo: false, canRedo: false, selected: 0, canPaste: false });
+  const [status, setStatus] = useState<EditorStatus>({ canUndo: false, canRedo: false, selected: 0, canPaste: false, single: null, cropping: false });
   const onStatus = useCallback((s: EditorStatus) => setStatus(s), []);
   const areaRef = useRef<HTMLDivElement>(null);
   const [areaW, setAreaW] = useState(800);
@@ -144,6 +149,21 @@ export function NotebookView({ sectionId, pageId }: { sectionId: string; pageId?
     return () => el.removeEventListener('wheel', onWheel);
   }, [zoomStep]);
 
+  const onImportPdf = async (files: File[]) => {
+    for (const f of files) {
+      try {
+        setPdfProgress({ name: f.name, done: 0, total: 0 });
+        const res = await importPdf(f, sectionId, current?.order, (p) => setPdfProgress({ name: f.name, ...p }));
+        if (res.firstPageId) go({ name: 'pagina', sectionId, pageId: res.firstPageId });
+      } catch (err) {
+        console.error(err);
+        setPdfError(`Não foi possível importar ${f.name}. O arquivo pode estar protegido por senha ou danificado.`);
+      } finally {
+        setPdfProgress(null);
+      }
+    }
+  };
+
   const newPageAfter = async () => {
     const id = await addPage(sectionId, idx);
     go({ name: 'pagina', sectionId, pageId: id });
@@ -164,6 +184,9 @@ export function NotebookView({ sectionId, pageId }: { sectionId: string; pageId?
         </button>
         <button className={`icon-btn ${sidebar ? 'active' : ''}`} onClick={() => setSidebar((s: boolean) => !s)} title="Miniaturas">
           <Icon name="panel" />
+        </button>
+        <button className="icon-btn hide-sm" onClick={() => go({ name: 'busca' })} title="Buscar no caderno">
+          <Icon name="search" />
         </button>
         <span className="sep" />
         <span className="title" title={section.title}>
@@ -193,6 +216,11 @@ export function NotebookView({ sectionId, pageId }: { sectionId: string; pageId?
           title="Marcador"
         >
           <Icon name="bookmark" fill={current.bookmarked ? 'currentColor' : 'none'} />
+        </button>
+        <button className={`icon-btn ${tagsOpen || current.tags.length ? 'active' : ''}`} onClick={() => setTagsOpen((o) => !o)} title="Tags da página">
+          <svg viewBox="0 0 24 24" width={19} height={19} fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8zM7 7h.01" />
+          </svg>
         </button>
         <button className={`icon-btn ${tplOpen ? 'active' : ''}`} onClick={() => setTplOpen((o) => !o)} title="Modelo da página">
           <Icon name="paper" />
@@ -224,9 +252,28 @@ export function NotebookView({ sectionId, pageId }: { sectionId: string; pageId?
           <span className="dot" /> {saving ? 'Salvando…' : 'Salvo'}
         </span>
         {tplOpen && <TemplatePopover page={current} onClose={() => setTplOpen(false)} right={110} />}
+        {tagsOpen && <TagsPopover page={current} onClose={() => setTagsOpen(false)} right={150} />}
       </header>
 
-      <Toolstrip tool={tool} setTool={setTool} settings={settings} setSettings={setSettings} status={status} api={editorApi} />
+      <Toolstrip tool={tool} setTool={setTool} settings={settings} setSettings={setSettings} status={status} api={editorApi} onImportPdf={onImportPdf} />
+      {pdfProgress && (
+        <div className="toast" role="status">
+          <span>
+            Importando <b>{pdfProgress.name}</b>: página {pdfProgress.done} de {pdfProgress.total || '…'}
+          </span>
+          <span className="progress">
+            <span style={{ width: `${pdfProgress.total ? (pdfProgress.done / pdfProgress.total) * 100 : 5}%` }} />
+          </span>
+        </div>
+      )}
+      {pdfError && (
+        <div className="toast" role="alert">
+          <span>{pdfError}</span>
+          <button className="btn" onClick={() => setPdfError(null)}>
+            Fechar
+          </button>
+        </div>
+      )}
 
       <div className="nb-body">
         <aside className={`sidebar ${sidebar ? '' : 'closed'}`}>

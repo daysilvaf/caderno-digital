@@ -79,6 +79,9 @@ export function Cover() {
             <button className="btn" onClick={() => go({ name: 'revisao' })}>
               <Icon name="brain" /> Revisão
             </button>
+            <button className="btn" onClick={() => go({ name: 'busca' })}>
+              <Icon name="search" /> Buscar no caderno
+            </button>
           </nav>
 
           <div className="section-label">Cor da capa</div>

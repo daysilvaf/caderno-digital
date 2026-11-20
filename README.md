@@ -17,5 +17,5 @@ O site é publicado automaticamente no GitHub Pages a cada push na branch `main`
 
 - [x] Passo 1: capa, índice das aulas, páginas, fundos, miniaturas, zoom, salvamento automático (IndexedDB)
 - [x] Passo 2: editor de escrita e desenho (caneta, lápis, marca-texto, borracha, formas, texto, laço, seleção, mover, redimensionar, girar, copiar, colar, desfazer)
-- [ ] Passo 3: PDFs, imagens, stickers, tags, busca, biblioteca, revisão
+- [x] Passo 3: PDFs anotáveis, imagens (colar, arrastar, recortar), stickers, links, documentos, tags, busca, biblioteca, revisão
 - [ ] Passo 4: sincronização (Supabase), exportação, visual final

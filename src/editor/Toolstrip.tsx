@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { Icon } from '../icons';
 import { useOutside } from '../components/useOutside';
+import { InsertMenu } from './InsertMenu';
 import type { FontKind, ShapeKind } from './elements';
 import type { EditorApi, EditorStatus } from './Editor';
 import type { PenSettings, Tool, ToolSettings } from './tools';
@@ -13,6 +14,7 @@ interface Props {
   setSettings: React.Dispatch<React.SetStateAction<ToolSettings>>;
   status: EditorStatus;
   api: React.RefObject<EditorApi | null>;
+  onImportPdf: (files: File[]) => void;
 }
 
 const SHAPE_ICONS: Record<ShapeKind, string> = {
@@ -35,7 +37,7 @@ function PathIcon({ d }: { d: string }) {
 
 const PENCIL = 'M17 3l4 4L8 20H4v-4zM14 6l4 4';
 
-export function Toolstrip({ tool, setTool, settings, setSettings, status, api }: Props) {
+export function Toolstrip({ tool, setTool, settings, setSettings, status, api, onImportPdf }: Props) {
   const hasSel = status.selected > 0;
 
   const toolBtn = (t: Tool, icon: React.ReactNode) => (
@@ -65,6 +67,8 @@ export function Toolstrip({ tool, setTool, settings, setSettings, status, api }:
         {toolBtn('texto', <Icon name="text" />)}
         {toolBtn('forma', <PathIcon d={SHAPE_ICONS[settings.forma.kind]} />)}
       </div>
+      <span className="sep" />
+      <InsertMenu api={api} onImportPdf={onImportPdf} />
       <span className="sep" />
 
       <div className="group options">
@@ -144,14 +148,32 @@ export function Toolstrip({ tool, setTool, settings, setSettings, status, api }:
           </>
         )}
 
-        {(tool === 'selecao' || tool === 'laco') && hasSel && (
+        {status.cropping && (
+          <>
+            <span className="hint">Arraste os cantos rosa para recortar</span>
+            <button className="btn primary" onClick={() => api.current?.endCrop()}>
+              Concluir recorte
+            </button>
+          </>
+        )}
+        {!status.cropping && (tool === 'selecao' || tool === 'laco') && hasSel && (
           <>
             <span className="hint">{status.selected} selecionado(s)</span>
+            {status.single === 'image' && (
+              <button className="btn ghost" onClick={() => api.current?.startCrop()} title="Recortar imagem (ou duplo clique nela)">
+                <PathIcon d="M6 2v14a2 2 0 0 0 2 2h14M18 22V8a2 2 0 0 0-2-2H2" /> Recortar
+              </button>
+            )}
+            {status.single === 'link' && (
+              <button className="btn ghost" onClick={() => api.current?.openSelected()} title="Abrir link ou documento">
+                <PathIcon d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3" /> Abrir
+              </button>
+            )}
             <Swatches colors={INK_COLORS} value="" onChange={(color) => api.current?.applyStyle({ color })} />
             <OpacitySlider value={1} onCommit={(opacity) => api.current?.applyStyle({ opacity })} />
           </>
         )}
-        {(tool === 'selecao' || tool === 'laco') && !hasSel && (
+        {!status.cropping && (tool === 'selecao' || tool === 'laco') && !hasSel && (
           <span className="hint">{tool === 'laco' ? 'Contorne o que quer selecionar' : 'Clique num elemento ou arraste para selecionar'}</span>
         )}
         {tool === 'mao' && <span className="hint">Arraste para mover a folha. Dica: segure espaço com qualquer ferramenta.</span>}

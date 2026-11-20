@@ -49,6 +49,15 @@ export function IndexView() {
         </button>
         <span className="title">Índice</span>
         <span className="spacer" />
+        <button className="icon-btn" onClick={() => go({ name: 'busca' })} title="Buscar no caderno">
+          <Icon name="search" />
+        </button>
+        <button className="icon-btn" onClick={() => go({ name: 'biblioteca' })} title="Biblioteca">
+          <Icon name="folder" />
+        </button>
+        <button className="icon-btn" onClick={() => go({ name: 'revisao' })} title="Revisão">
+          <Icon name="brain" />
+        </button>
         <button className="btn ghost" onClick={() => go({ name: 'favoritos' })}>
           <Icon name="star" width={16} /> <span className="hide-sm">Favoritos</span>
         </button>

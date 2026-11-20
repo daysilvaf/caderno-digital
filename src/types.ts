@@ -57,17 +57,30 @@ export interface Page {
   bookmarked: number;
   tags: string[];
   elements: PageElement[];
+  /** Fundo de imagem (página de PDF importado). */
+  background?: { assetId: string };
   thumbnail?: string;
   createdAt: number;
   updatedAt: number;
 }
 
+export type AssetKind = 'imagem' | 'pdf' | 'documento' | 'sticker' | 'pagina-pdf';
+
 export interface Asset {
   id: string;
+  kind: AssetKind;
   name: string;
   mime: string;
   size: number;
   blob: Blob;
+  /** dimensões em pixels (imagens) */
+  w?: number;
+  h?: number;
+  /** páginas de um PDF apontam para o PDF de origem */
+  parentId?: string;
+  /** aula para onde o PDF foi importado */
+  sectionId?: string;
+  pageCount?: number;
   createdAt: number;
 }
 

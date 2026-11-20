@@ -1,4 +1,5 @@
 import { getStroke } from 'perfect-freehand';
+import { getImage } from '../assets';
 import type { Box, Mat, Pt } from './geom';
 import { apply, boundsOf, distToSegment, IDENTITY, invert, matScale, transformBox } from './geom';
 
@@ -47,7 +48,32 @@ export interface TextEl extends Base {
   w: number;
 }
 
-export type El = StrokeEl | ShapeEl | TextEl;
+export interface ImageEl extends Base {
+  type: 'image';
+  assetId: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  /** recorte visível da imagem original, em frações (0 a 1) */
+  crop: { x: number; y: number; w: number; h: number };
+}
+
+export interface LinkEl extends Base {
+  type: 'link';
+  x: number;
+  y: number;
+  label: string;
+  url?: string; // link da internet
+  assetId?: string; // documento guardado no caderno
+  color: string;
+}
+
+export type El = StrokeEl | ShapeEl | TextEl | ImageEl | LinkEl;
+
+export const FULL_CROP = { x: 0, y: 0, w: 1, h: 1 };
+const LINK_H = 34;
+const LINK_FONT = '500 15px Inter, system-ui, sans-serif';
 
 export const FONT_FAMILY: Record<FontKind, string> = {
   sans: "Inter, system-ui, sans-serif",
@@ -221,12 +247,22 @@ export function localBox(el: El): Box {
       { x: el.x2, y: el.y2 },
     ]);
     b = { x: bb.x - r, y: bb.y - r, w: bb.w + 2 * r, h: bb.h + 2 * r };
+  } else if (el.type === 'image') {
+    b = { x: el.x, y: el.y, w: el.w, h: el.h };
+  } else if (el.type === 'link') {
+    b = { x: el.x, y: el.y, w: linkWidth(el), h: LINK_H };
   } else {
     const lines = wrapText(el);
     b = { x: el.x, y: el.y, w: el.w, h: Math.max(1, lines.length) * el.fontSize * LINE_HEIGHT };
   }
   localBoxCache.set(key, b);
   return b;
+}
+
+function linkWidth(el: LinkEl) {
+  measureCtx ??= document.createElement('canvas').getContext('2d')!;
+  measureCtx.font = LINK_FONT;
+  return Math.min(520, measureCtx.measureText(el.label).width) + 52;
 }
 
 export function elBox(el: El): Box {
@@ -251,6 +287,55 @@ export function drawElement(ctx: CanvasRenderingContext2D, el: El) {
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.stroke(p);
+  } else if (el.type === 'image') {
+    const img = getImage(el.assetId);
+    if (img) {
+      const nw = img.naturalWidth || el.w;
+      const nh = img.naturalHeight || el.h;
+      const c = el.crop;
+      ctx.drawImage(img, c.x * nw, c.y * nh, c.w * nw, c.h * nh, el.x, el.y, el.w, el.h);
+    } else {
+      ctx.fillStyle = 'rgba(185,167,232,0.12)';
+      ctx.fillRect(el.x, el.y, el.w, el.h);
+    }
+  } else if (el.type === 'link') {
+    const w = linkWidth(el);
+    ctx.beginPath();
+    ctx.roundRect(el.x, el.y, w, LINK_H, LINK_H / 2);
+    ctx.fillStyle = el.color + '33';
+    ctx.fill();
+    ctx.strokeStyle = el.color;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    // ícone: clipe (documento) ou corrente (link)
+    ctx.save();
+    ctx.translate(el.x + 14, el.y + LINK_H / 2);
+    ctx.strokeStyle = el.color;
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    if (el.assetId) {
+      ctx.moveTo(4, -2);
+      ctx.lineTo(-2, 4);
+      ctx.arc(-4, 2, 3, Math.PI * 0.25, Math.PI * 1.25);
+      ctx.lineTo(4, -8);
+      ctx.arc(6, -6, 3, Math.PI * 1.25, Math.PI * 0.25);
+      ctx.lineTo(0, 6);
+    } else {
+      ctx.roundRect(-7, -3, 8, 6, 3);
+      ctx.roundRect(-1, -3, 8, 6, 3);
+    }
+    ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle = el.color;
+    ctx.font = LINK_FONT;
+    ctx.textBaseline = 'middle';
+    let label = el.label;
+    if (ctx.measureText(label).width > 520) {
+      while (label.length > 3 && ctx.measureText(label + '…').width > 520) label = label.slice(0, -1);
+      label += '…';
+    }
+    ctx.fillText(label, el.x + 32, el.y + LINK_H / 2 + 1);
   } else {
     ctx.fillStyle = el.color;
     ctx.font = textFont(el);

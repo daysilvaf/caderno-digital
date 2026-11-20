@@ -6,6 +6,7 @@ export type Route =
   | { name: 'favoritos' }
   | { name: 'biblioteca' }
   | { name: 'revisao' }
+  | { name: 'busca'; q?: string }
   | { name: 'pagina'; sectionId: string; pageId?: string };
 
 /*

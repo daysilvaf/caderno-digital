@@ -61,7 +61,7 @@ export function FavoritesView() {
   );
 }
 
-function PageGrid({ pages, byId, empty }: { pages: Page[]; byId: Map<string, Section>; empty: string }) {
+export function PageGrid({ pages, byId, empty }: { pages: Page[]; byId: Map<string, Section>; empty: string }) {
   if (pages.length === 0) return <div className="empty">{empty}</div>;
   return (
     <div className="fav-list" style={{ marginTop: 12 }}>

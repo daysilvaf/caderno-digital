@@ -17,6 +17,16 @@ class CadernoDB extends Dexie {
       pages: 'id, sectionId, [sectionId+order], favorite, bookmarked, *tags, updatedAt',
       assets: 'id, createdAt',
     });
+    this.version(2)
+      .stores({ assets: 'id, createdAt, kind, parentId' })
+      .upgrade((tx) =>
+        tx
+          .table('assets')
+          .toCollection()
+          .modify((a: { kind?: string; mime?: string }) => {
+            a.kind ??= a.mime?.startsWith('image/') ? 'imagem' : a.mime === 'application/pdf' ? 'pdf' : 'documento';
+          }),
+      );
   }
 }
 
