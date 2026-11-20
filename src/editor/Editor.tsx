@@ -2,10 +2,13 @@ import { nanoid } from 'nanoid';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
 import { db, updatePage } from '../db';
 import { onRemotePageChange } from '../sync';
-import { paperColors } from '../paper';
+import { isDark, paperColors } from '../paper';
+import { AiError, readImageItems } from '../ai';
+import { cropForAi, inkify } from '../inkify';
+import { itemsToElements } from './fromAi';
 import type { Page } from '../types';
 import type { El, ImageEl, LinkEl, ShapeEl, StrokeEl, TextEl } from './elements';
-import { getImage, onAssetLoaded, openAsset, saveFile, saveImage, kindOf } from '../assets';
+import { getImage, preloadImages, onAssetLoaded, openAsset, saveFile, saveImage, kindOf } from '../assets';
 import type { Asset } from '../types';
 import { stickerSize } from '../stickers';
 import { drawElement, drawElements, elBox, eraseFromStroke, FONT_FAMILY, FULL_CROP, hitTest, IDENTITY, LINE_HEIGHT, samplePoints } from './elements';
@@ -44,6 +47,10 @@ export interface EditorApi {
   openSelected(): void;
   startCrop(): void;
   endCrop(): void;
+  /** Tira o fundo liso da imagem selecionada ("efeito caderno"). */
+  inkifySelected(): Promise<void>;
+  /** Usa a IA para transformar a imagem selecionada em anotação à mão editável. */
+  toNotesSelected(): Promise<void>;
 }
 
 interface Props {
@@ -53,6 +60,16 @@ interface Props {
   settings: ToolSettings;
   onStatus: (s: EditorStatus) => void;
   onToolChange: (t: Tool) => void;
+}
+
+/** Espera a imagem de um asset terminar de carregar. */
+async function loadedImage(id: string): Promise<HTMLImageElement> {
+  const now = getImage(id);
+  if (now) return now;
+  await preloadImages([id]);
+  const img = getImage(id);
+  if (!img) throw new Error('Não consegui abrir esta imagem.');
+  return img;
 }
 
 // Área de transferência interna (vale entre páginas e aulas).
@@ -861,6 +878,12 @@ export const Editor = forwardRef<EditorApi, Props>(function Editor({ page, scale
     return { x: Math.max(40, Math.min(W - 40, (cx - r.left) / scale)), y: Math.max(40, Math.min(H - 40, (cy - r.top) / scale)) };
   };
 
+  /** Em papel escuro, devolve a cor clara de tinta (para a tinta preta das imagens não sumir). */
+  const grayInk = () => {
+    const pc = paperColors(page.template);
+    return isDark(pc.bg) ? pc.ink : undefined;
+  };
+
   const addAndSelect = (els: El[]) => {
     commit([...elsRef.current, ...els]);
     setSelected(new Set(els.map((x) => x.id)));
@@ -1025,6 +1048,28 @@ export const Editor = forwardRef<EditorApi, Props>(function Editor({ page, scale
     },
     startCrop: () => startCrop(),
     endCrop,
+    async inkifySelected() {
+      const el = selectedEls()[0];
+      if (el?.type !== 'image') return;
+      const img = await loadedImage(el.assetId);
+      const a = await saveImage(await inkify(img, { grayTo: grayInk() }), 'imagem sem fundo');
+      const next = elsRef.current.map((e) => (e.id === el.id ? { ...el, assetId: a.id } : e));
+      commit(next);
+    },
+    async toNotesSelected() {
+      const el = selectedEls()[0];
+      if (el?.type !== 'image') return;
+      const img = await loadedImage(el.assetId);
+      const [items, inked] = await Promise.all([readImageItems(await cropForAi(img, el.crop)), inkify(img, { grayTo: grayInk() }).then((b) => saveImage(b, 'imagem sem fundo'))]);
+      if (!items.length) throw new AiError('A IA não encontrou nada para escrever nesta imagem.');
+      const paper = paperColors(page.template);
+      const made = itemsToElements(items, { x: el.x, y: el.y, w: el.w, h: el.h, m: el.m, crop: el.crop, inkAssetId: inked.id, paper: paper.bg, ink: paper.ink });
+      const i = elsRef.current.findIndex((e) => e.id === el.id);
+      const cur = elsRef.current.filter((e) => e.id !== el.id);
+      cur.splice(i < 0 ? cur.length : i, 0, ...made);
+      commit(cur);
+      setSelected(new Set(made.map((m) => m.id)));
+    },
   };
   const apiRef = useRef(api);
   apiRef.current = api;
@@ -1048,6 +1093,8 @@ export const Editor = forwardRef<EditorApi, Props>(function Editor({ page, scale
     openSelected: () => apiRef.current.openSelected(),
     startCrop: () => apiRef.current.startCrop(),
     endCrop: () => apiRef.current.endCrop(),
+    inkifySelected: () => apiRef.current.inkifySelected(),
+    toNotesSelected: () => apiRef.current.toNotesSelected(),
   }));
 
   // ---------- teclado ----------

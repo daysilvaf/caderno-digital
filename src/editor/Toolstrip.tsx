@@ -2,6 +2,8 @@ import { useRef, useState } from 'react';
 import { Icon } from '../icons';
 import { useOutside } from '../components/useOutside';
 import { InsertMenu } from './InsertMenu';
+import { getAiKey } from '../ai';
+import { go } from '../router';
 import type { FontKind, ShapeKind } from './elements';
 import type { EditorApi, EditorStatus } from './Editor';
 import type { PenSettings, Tool, ToolSettings } from './tools';
@@ -39,6 +41,25 @@ const PENCIL = 'M17 3l4 4L8 20H4v-4zM14 6l4 4';
 
 export function Toolstrip({ tool, setTool, settings, setSettings, status, api, onImportPdf }: Props) {
   const hasSel = status.selected > 0;
+  const [busy, setBusy] = useState<'fundo' | 'ia' | null>(null);
+  const [aiMsg, setAiMsg] = useState<string | null>(null);
+
+  const run = async (what: 'fundo' | 'ia') => {
+    setAiMsg(null);
+    if (what === 'ia' && !getAiKey()) {
+      setAiMsg('Para a IA ler a imagem, coloque sua chave da Anthropic em Ajustes.');
+      return;
+    }
+    setBusy(what);
+    try {
+      if (what === 'fundo') await api.current?.inkifySelected();
+      else await api.current?.toNotesSelected();
+    } catch (e) {
+      setAiMsg(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(null);
+    }
+  };
 
   const toolBtn = (t: Tool, icon: React.ReactNode) => (
     <button key={t} className={`icon-btn ${tool === t ? 'active' : ''}`} onClick={() => setTool(t)} title={TOOL_LABEL[t]} aria-pressed={tool === t}>
@@ -160,9 +181,28 @@ export function Toolstrip({ tool, setTool, settings, setSettings, status, api, o
           <>
             <span className="hint">{status.selected} selecionado(s)</span>
             {status.single === 'image' && (
-              <button className="btn ghost" onClick={() => api.current?.startCrop()} title="Recortar imagem (ou duplo clique nela)">
-                <PathIcon d="M6 2v14a2 2 0 0 0 2 2h14M18 22V8a2 2 0 0 0-2-2H2" /> Recortar
-              </button>
+              <>
+                <button className="btn ghost" onClick={() => api.current?.startCrop()} title="Recortar imagem (ou duplo clique nela)">
+                  <PathIcon d="M6 2v14a2 2 0 0 0 2 2h14M18 22V8a2 2 0 0 0-2-2H2" /> Recortar
+                </button>
+                <button className="btn ghost" disabled={!!busy} onClick={() => run('fundo')} title="Tira o fundo branco para a imagem parecer feita na folha">
+                  <PathIcon d="M4 20l6-6M14 4l6 6-8 8H6v-6z" /> {busy === 'fundo' ? 'Tirando o fundo…' : 'Tirar fundo'}
+                </button>
+                <button className="btn ghost ai-btn" disabled={!!busy} onClick={() => run('ia')} title="A IA lê a imagem e reescreve tudo à mão: texto, setas, caixas e figuras, tudo editável">
+                  <PathIcon d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8zM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z" />{' '}
+                  {busy === 'ia' ? 'Lendo a imagem… (até 1 min)' : 'Virar anotação à mão'}
+                </button>
+              </>
+            )}
+            {aiMsg && (
+              <span className="hint ai-msg">
+                {aiMsg}
+                {!getAiKey() && (
+                  <button className="btn ghost" onClick={() => go({ name: 'ajustes' })}>
+                    Abrir Ajustes
+                  </button>
+                )}
+              </span>
             )}
             {status.single === 'link' && (
               <button className="btn ghost" onClick={() => api.current?.openSelected()} title="Abrir link ou documento">

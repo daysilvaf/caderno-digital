@@ -3,6 +3,7 @@ import { createBackup, restoreBackup } from '../backup';
 import { pickFiles, formatBytes } from '../assets';
 import { getConfig, saveConfig, signIn, signOut, syncNow, useSyncState } from '../sync';
 import { Shell } from './Shell';
+import { getAiKey, setAiKey } from '../ai';
 
 export function SettingsView() {
   return (
@@ -10,6 +11,7 @@ export function SettingsView() {
       <h1>Ajustes</h1>
       <p className="sheet-sub">Sincronização entre aparelhos e cópias de segurança.</p>
       <SyncSection />
+      <AiSection />
       <BackupSection />
     </Shell>
   );
@@ -123,6 +125,70 @@ function SyncSection() {
             </form>
           )}
           {msg && <p className="hint" style={{ whiteSpace: 'normal', color: 'var(--rosa)' }}>{msg}</p>}
+        </>
+      )}
+    </section>
+  );
+}
+
+function AiSection() {
+  const [saved, setSaved] = useState(getAiKey());
+  const [key, setKey] = useState('');
+  return (
+    <section className="settings-block">
+      <h3 className="section-label">Imagem que vira anotação (IA)</h3>
+      <p className="hint" style={{ whiteSpace: 'normal' }}>
+        Cole uma imagem (por exemplo, um resumo feito pelo ChatGPT), selecione e clique em <b>Virar anotação à mão</b>. A IA lê o texto, as setas, as caixas e os desenhos, e reescreve tudo na
+        página com letra de mão, tudo editável. Usa o Claude, da Anthropic: custa alguns centavos por imagem, pagos com crédito na sua conta da Anthropic. A chave fica salva só neste
+        aparelho.
+      </p>
+      {saved ? (
+        <div className="sync-card">
+          <div>Chave salva neste aparelho (termina em …{saved.slice(-4)})</div>
+          <button
+            className="btn ghost"
+            onClick={() => {
+              setAiKey('');
+              setSaved('');
+            }}
+          >
+            Remover chave
+          </button>
+        </div>
+      ) : (
+        <>
+          <ol className="hint" style={{ whiteSpace: 'normal', paddingLeft: 18 }}>
+            <li>
+              Entre em{' '}
+              <a href="https://console.anthropic.com/settings/billing" target="_blank" rel="noopener">
+                console.anthropic.com
+              </a>{' '}
+              e coloque crédito (o mínimo é 5 dólares).
+            </li>
+            <li>
+              Em{' '}
+              <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">
+                API Keys
+              </a>
+              , clique em <b>Create Key</b>, copie a chave e cole aqui.
+            </li>
+          </ol>
+          <form
+            style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}
+            onSubmit={(e) => {
+              e.preventDefault();
+              const k = key.trim();
+              if (!k) return;
+              setAiKey(k);
+              setSaved(k);
+              setKey('');
+            }}
+          >
+            <input className="text-input" type="password" autoComplete="off" placeholder="sk-ant-…" value={key} onChange={(e) => setKey(e.target.value)} style={{ flex: '1 1 260px' }} />
+            <button className="btn primary" type="submit" disabled={!key.trim()}>
+              Salvar chave
+            </button>
+          </form>
         </>
       )}
     </section>
