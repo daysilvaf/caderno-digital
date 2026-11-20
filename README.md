@@ -11,6 +11,8 @@ npm run dev
 
 Abra o endereço que aparecer (normalmente http://localhost:5173).
 
+O site é publicado automaticamente no GitHub Pages a cada push na branch `main`: https://daysilvaf.github.io/caderno-digital/
+
 ## Status
 
 - [x] Passo 1: capa, índice das aulas, páginas, fundos, miniaturas, zoom, salvamento automático (IndexedDB)
