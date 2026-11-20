@@ -27,6 +27,10 @@ drop trigger if exists caderno_dados_sync on public.caderno_dados;
 create trigger caderno_dados_sync before insert or update on public.caderno_dados
 for each row execute function public.caderno_marcar_sync();
 
+-- Projetos novos do Supabase não liberam tabelas novas para a API automaticamente
+grant usage on schema public to authenticated;
+grant select, insert, update, delete on public.caderno_dados to authenticated;
+
 -- Cada pessoa só vê e altera o próprio caderno
 alter table public.caderno_dados enable row level security;
 

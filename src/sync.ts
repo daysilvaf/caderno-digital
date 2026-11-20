@@ -185,6 +185,17 @@ export async function signOut() {
   setState({ email: null, status: 'desligada' });
 }
 
+/** Texto do erro real (os erros do Supabase nem sempre são instâncias de Error). */
+function errorText(e: unknown): string {
+  const o = (e ?? {}) as { message?: string; error_description?: string; error?: string; code?: string; details?: string; hint?: string; statusCode?: string };
+  const msg = o.message || o.error_description || o.error || (typeof e === 'string' ? e : '') || 'Erro ao sincronizar.';
+  if (o.code === '42501' || /permission denied/i.test(msg)) return 'Sem permissão na tabela do Supabase (42501). Rode de novo o arquivo supabase/setup.sql atualizado.';
+  if (o.code === '42P01' || o.code === 'PGRST205' || /does not exist|could not find the table/i.test(msg)) return 'A tabela caderno_dados não existe no Supabase. Rode o arquivo supabase/setup.sql.';
+  if (/bucket not found/i.test(msg)) return 'O armazenamento "arquivos" não existe no Supabase. Rode o arquivo supabase/setup.sql.';
+  const extra = [o.code, o.details, o.hint].filter(Boolean).join(' · ');
+  return traduzErro(msg) + (extra ? ` (${extra})` : '');
+}
+
 function traduzErro(msg: string) {
   if (/invalid login/i.test(msg)) return 'E-mail ou senha incorretos.';
   if (/already registered/i.test(msg)) return 'Esse e-mail já tem conta. Use "Entrar".';
@@ -247,7 +258,7 @@ export async function syncNow() {
     setState({ status: 'ociosa', lastSync: Date.now(), message: null });
   } catch (e) {
     console.error('[sync]', e);
-    setState({ status: 'erro', message: e instanceof Error ? traduzErro(e.message) : 'Erro ao sincronizar.' });
+    setState({ status: 'erro', message: errorText(e) });
   } finally {
     running = false;
     if (again) {
