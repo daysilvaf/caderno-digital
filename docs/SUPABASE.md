@@ -24,7 +24,7 @@ Assim a conta já funciona ao ser criada, sem precisar abrir o e-mail de confirm
 Em **Project Settings → API** (ou **Data API**), copie:
 
 - **Project URL** (algo como `https://abcd1234.supabase.co`)
-- **anon public** key (um texto longo que começa com `eyJ`)
+- **publishable key** (começa com `sb_publishable_`) ou, em projetos antigos, a **anon public** key (começa com `eyJ`)
 
 A chave *anon* é pública por natureza: quem protege os dados são as regras do `setup.sql`,
 que deixam cada pessoa ver só o próprio caderno. **Nunca** use a chave `service_role` no site.

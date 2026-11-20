@@ -89,8 +89,8 @@ function SyncSection() {
             >
               <label htmlFor="sb-url">Project URL do Supabase</label>
               <input id="sb-url" className="text-input" placeholder="https://xxxx.supabase.co" value={url} onChange={(e) => setUrl(e.target.value)} />
-              <label htmlFor="sb-key">Chave anon public</label>
-              <input id="sb-key" className="text-input" placeholder="eyJhbGciOi…" value={key} onChange={(e) => setKey(e.target.value)} />
+              <label htmlFor="sb-key">Chave publishable (ou anon)</label>
+              <input id="sb-key" className="text-input" placeholder="sb_publishable_…" value={key} onChange={(e) => setKey(e.target.value)} />
               <div />
               <button className="btn primary" type="submit" disabled={!url || !key}>
                 Salvar conexão
