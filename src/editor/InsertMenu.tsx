@@ -6,11 +6,15 @@ import { db } from '../db';
 import { Icon } from '../icons';
 import { STICKER_CATEGORIES, STICKERS, stickerUrl } from '../stickers';
 import type { EditorApi } from './Editor';
+import { importPagePack } from '../pagePack';
+import { go, useRoute } from '../router';
 
 type Panel = null | 'menu' | 'stickers' | 'link';
 
 export function InsertMenu({ api, onImportPdf }: { api: React.RefObject<EditorApi | null>; onImportPdf: (files: File[]) => void }) {
   const [panel, setPanel] = useState<Panel>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const route = useRoute();
   const ref = useRef<HTMLDivElement>(null);
   useOutside(ref, panel !== null, () => setPanel(null));
 
@@ -58,8 +62,31 @@ export function InsertMenu({ api, onImportPdf }: { api: React.RefObject<EditorAp
           >
             <Icon name="paper" width={16} /> Importar PDF como páginas
           </button>
+          <button
+            onClick={async () => {
+              setPanel(null);
+              if (route.name !== 'pagina') return;
+              const [file] = await pickFiles('.json,application/json', false);
+              if (!file) return;
+              try {
+                const pageId = await importPagePack(file, route.sectionId, route.pageId);
+                go({ name: 'pagina', sectionId: route.sectionId, pageId });
+              } catch (e) {
+                window.setTimeout(() => setErr(e instanceof Error ? e.message : String(e)));
+              }
+            }}
+          >
+            <Icon name="book" width={16} /> Importar página pronta (.json)
+          </button>
           <span className="hint" style={{ padding: '4px 10px' }}>
             Dica: também dá para colar (Ctrl V) ou arrastar imagens e arquivos para a folha.
+          </span>
+        </div>
+      )}
+      {err && (
+        <div className="menu" style={{ left: 0, right: 'auto', minWidth: 220 }} onClick={() => setErr(null)}>
+          <span className="hint" style={{ padding: '4px 10px', whiteSpace: 'normal' }}>
+            {err}
           </span>
         </div>
       )}

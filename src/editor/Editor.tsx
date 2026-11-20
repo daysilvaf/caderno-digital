@@ -6,6 +6,8 @@ import { isDark, paperColors } from '../paper';
 import { AiError, readImageItems } from '../ai';
 import { cropForAi, inkify } from '../inkify';
 import { itemsToElements } from './fromAi';
+import { importPagePack } from '../pagePack';
+import { go } from '../router';
 import type { Page } from '../types';
 import type { El, ImageEl, LinkEl, ShapeEl, StrokeEl, TextEl } from './elements';
 import { getImage, preloadImages, onAssetLoaded, openAsset, saveFile, saveImage, kindOf } from '../assets';
@@ -907,6 +909,15 @@ export const Editor = forwardRef<EditorApi, Props>(function Editor({ page, scale
     const added: El[] = [];
     let off = 0;
     for (const f of files) {
+      if (/\.json$/i.test(f.name)) {
+        try {
+          const pageId = await importPagePack(f, page.sectionId, page.id);
+          go({ name: 'pagina', sectionId: page.sectionId, pageId });
+          return;
+        } catch {
+          /* não é uma página: guarda como documento */
+        }
+      }
       if (f.type.startsWith('image/')) {
         const a = await saveImage(f, f.name || 'imagem colada');
         added.push(imageEl(a.id, a.w ?? 300, a.h ?? 300, { x: center.x + off, y: center.y + off }, W * 0.6));
@@ -1211,6 +1222,7 @@ function TextEditor({ el, scale, onDone }: { el: TextEl; scale: number; ink: str
         left: pos.x * scale,
         top: pos.y * scale,
         width: el.w * s * scale,
+        textAlign: el.align ?? 'left',
         color: el.color,
         opacity: el.opacity,
         fontFamily: FONT_FAMILY[el.font],

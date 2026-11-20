@@ -35,6 +35,8 @@ export interface ShapeEl extends Base {
   y1: number;
   x2: number;
   y2: number;
+  /** raio dos cantos do retângulo (padrão: 6) */
+  radius?: number;
 }
 
 export interface TextEl extends Base {
@@ -46,6 +48,8 @@ export interface TextEl extends Base {
   x: number;
   y: number;
   w: number;
+  /** alinhamento das linhas dentro da largura (padrão: esquerda) */
+  align?: 'left' | 'center';
 }
 
 export interface ImageEl extends Base {
@@ -166,7 +170,7 @@ function shapePath(el: ShapeEl) {
       break;
     }
     case 'retangulo':
-      p.roundRect(x, y, w, h, Math.min(6, w / 4, h / 4));
+      p.roundRect(x, y, w, h, Math.min(el.radius ?? 6, w / 2, h / 2));
       break;
     case 'elipse':
       p.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2);
@@ -342,7 +346,10 @@ export function drawElement(ctx: CanvasRenderingContext2D, el: El) {
     ctx.textBaseline = 'top';
     const lh = el.fontSize * LINE_HEIGHT;
     const pad = (lh - el.fontSize) / 2;
-    wrapText(el).forEach((line, i) => ctx.fillText(line, el.x, el.y + pad + i * lh));
+    wrapText(el).forEach((line, i) => {
+      const dx = el.align === 'center' ? Math.max(0, (el.w - ctx.measureText(line).width) / 2) : 0;
+      ctx.fillText(line, el.x + dx, el.y + pad + i * lh);
+    });
   }
   ctx.restore();
 }
