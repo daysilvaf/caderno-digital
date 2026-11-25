@@ -5,9 +5,10 @@ import { InsertMenu } from './InsertMenu';
 import { getAiKey } from '../ai';
 import { go } from '../router';
 import type { FontKind, ShapeKind } from './elements';
+import { FONT_FAMILY, FONT_LABEL } from './elements';
 import type { EditorApi, EditorStatus } from './Editor';
-import type { PenSettings, Tool, ToolSettings } from './tools';
-import { HIGHLIGHT_COLORS, INK_COLORS, SHAPE_LABEL, SIZE_PRESETS, TOOL_LABEL } from './tools';
+import type { PenSettings, TextPresetId, Tool, ToolSettings } from './tools';
+import { HIGHLIGHT_COLORS, INK_COLORS, matchPreset, presetStyle, SHAPE_LABEL, SIZE_PRESETS, TEXT_PRESETS, TOOL_LABEL } from './tools';
 
 interface Props {
   tool: Tool;
@@ -17,6 +18,8 @@ interface Props {
   status: EditorStatus;
   api: React.RefObject<EditorApi | null>;
   onImportPdf: (files: File[]) => void;
+  /** folha escura: os estilos de letra usam cores claras */
+  dark: boolean;
 }
 
 const SHAPE_ICONS: Record<ShapeKind, string> = {
@@ -39,10 +42,11 @@ function PathIcon({ d }: { d: string }) {
 
 const PENCIL = 'M17 3l4 4L8 20H4v-4zM14 6l4 4';
 
-export function Toolstrip({ tool, setTool, settings, setSettings, status, api, onImportPdf }: Props) {
+export function Toolstrip({ tool, setTool, settings, setSettings, status, api, onImportPdf, dark }: Props) {
   const hasSel = status.selected > 0;
   const [busy, setBusy] = useState<'fundo' | 'ia' | null>(null);
   const [aiMsg, setAiMsg] = useState<string | null>(null);
+  const [textMsg, setTextMsg] = useState<string | null>(null);
 
   const run = async (what: 'fundo' | 'ia') => {
     setAiMsg(null);
@@ -143,15 +147,19 @@ export function Toolstrip({ tool, setTool, settings, setSettings, status, api, o
 
         {tool === 'texto' && (
           <>
+            <TextPresets active={matchPreset(settings.texto)} onPick={(id) => setSettings((s) => ({ ...s, texto: { ...presetStyle(id, dark) } }))} />
+            <span className="sep" />
             <select
               className="mini-select"
               value={settings.texto.font}
               onChange={(e) => setSettings((s) => ({ ...s, texto: { ...s.texto, font: e.target.value as FontKind } }))}
               aria-label="Fonte"
             >
-              <option value="sans">Moderna</option>
-              <option value="mao">Manuscrita</option>
-              <option value="serif">Clássica</option>
+              {(Object.keys(FONT_LABEL) as FontKind[]).map((f) => (
+                <option key={f} value={f} style={{ fontFamily: FONT_FAMILY[f] }}>
+                  {FONT_LABEL[f]}
+                </option>
+              ))}
             </select>
             <select
               className="mini-select"
@@ -159,13 +167,28 @@ export function Toolstrip({ tool, setTool, settings, setSettings, status, api, o
               onChange={(e) => setSettings((s) => ({ ...s, texto: { ...s.texto, fontSize: Number(e.target.value) } }))}
               aria-label="Tamanho do texto"
             >
-              {[14, 16, 18, 22, 28, 36, 48, 64].map((n) => (
+              {[...new Set([14, 16, 18, 20, 22, 28, 36, 48, 64, settings.texto.fontSize])].sort((a, b) => a - b).map((n) => (
                 <option key={n} value={n}>
                   {n}
                 </option>
               ))}
             </select>
             <Swatches colors={INK_COLORS} value={settings.texto.color} onChange={(color) => setSettings((s) => ({ ...s, texto: { ...s.texto, color } }))} />
+            <span className="sep" />
+            <HighlightPick value={settings.texto.highlight ?? null} onChange={(highlight) => setSettings((s) => ({ ...s, texto: { ...s.texto, highlight } }))} />
+            <span className="sep" />
+            <button
+              className="btn ghost"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                const n = api.current?.handwritePage() ?? 0;
+                setTextMsg(n ? `${n} texto(s) à mão ✓` : 'Nenhum texto na página');
+              }}
+              title="Passa todos os textos desta página para letra de mão: os grandes viram títulos cursivos com destaque, o resto vira escrita de caneta"
+            >
+              Página toda à mão
+            </button>
+            {textMsg && <span className="hint">{textMsg}</span>}
           </>
         )}
 
@@ -208,6 +231,26 @@ export function Toolstrip({ tool, setTool, settings, setSettings, status, api, o
               <button className="btn ghost" onClick={() => api.current?.openSelected()} title="Abrir link ou documento">
                 <PathIcon d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3" /> Abrir
               </button>
+            )}
+            {status.texts > 0 && (
+              <>
+                <TextPresets active={null} onPick={(id) => api.current?.applyTextStyle(presetStyle(id, dark))} />
+                <select
+                  className="mini-select"
+                  value=""
+                  onChange={(e) => e.target.value && api.current?.applyTextStyle({ font: e.target.value as FontKind })}
+                  aria-label="Trocar fonte"
+                >
+                  <option value="">Fonte…</option>
+                  {(Object.keys(FONT_LABEL) as FontKind[]).map((f) => (
+                    <option key={f} value={f}>
+                      {FONT_LABEL[f]}
+                    </option>
+                  ))}
+                </select>
+                <HighlightPick value={undefined} onChange={(highlight) => api.current?.applyTextStyle({ highlight })} />
+                <span className="sep" />
+              </>
             )}
             <Swatches colors={INK_COLORS} value="" onChange={(color) => api.current?.applyStyle({ color })} />
             <OpacitySlider value={1} onCommit={(opacity) => api.current?.applyStyle({ opacity })} />
@@ -252,6 +295,47 @@ export function Toolstrip({ tool, setTool, settings, setSettings, status, api, o
           <Icon name="redo" />
         </button>
       </div>
+    </div>
+  );
+}
+
+/** Botões de estilo pronto: título cursivo, subtítulo e escrita de caneta. */
+function TextPresets({ active, onPick }: { active: TextPresetId | null; onPick: (id: TextPresetId) => void }) {
+  return (
+    <div className="seg text-presets">
+      {(Object.keys(TEXT_PRESETS) as TextPresetId[]).map((id) => (
+        <button
+          key={id}
+          className={active === id ? 'on' : ''}
+          // não tira o foco do texto que está sendo digitado
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => onPick(id)}
+          title={TEXT_PRESETS[id].hint}
+          style={{ fontFamily: FONT_FAMILY[TEXT_PRESETS[id].light.font], fontSize: id === 'escrita' ? 14 : 16 }}
+        >
+          {TEXT_PRESETS[id].label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Marca-texto atrás do texto: nenhum ou uma das cores pastel. */
+function HighlightPick({ value, onChange }: { value: string | null | undefined; onChange: (c: string | null) => void }) {
+  return (
+    <div className="swatches tight" title="Marca-texto atrás do texto">
+      <span className="hint">Destaque</span>
+      <button className={`swatch sm swatch-none ${value === null ? 'on' : ''}`} onMouseDown={(e) => e.preventDefault()} onClick={() => onChange(null)} aria-label="Sem destaque" />
+      {['#f4c6d7', '#7a3352', ...HIGHLIGHT_COLORS.filter((c) => c !== '#f4b8cf')].map((c) => (
+        <button
+          key={c}
+          className={`swatch sm ${value?.toLowerCase() === c ? 'on' : ''}`}
+          style={{ background: c }}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => onChange(c)}
+          aria-label={`Destaque ${c}`}
+        />
+      ))}
     </div>
   );
 }

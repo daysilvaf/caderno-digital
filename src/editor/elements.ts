@@ -5,7 +5,8 @@ import { apply, boundsOf, distToSegment, IDENTITY, invert, matScale, transformBo
 
 export type PenKind = 'caneta' | 'lapis' | 'marcatexto';
 export type ShapeKind = 'linha' | 'seta' | 'retangulo' | 'elipse' | 'triangulo' | 'losango' | 'hexagono';
-export type FontKind = 'sans' | 'mao' | 'serif';
+/** mao = Caveat (antiga), cursiva = títulos em letra de mão, escrita = corpo em letra de caneta */
+export type FontKind = 'sans' | 'mao' | 'serif' | 'cursiva' | 'escrita';
 
 interface Base {
   id: string;
@@ -50,6 +51,8 @@ export interface TextEl extends Base {
   w: number;
   /** alinhamento das linhas dentro da largura (padrão: esquerda) */
   align?: 'left' | 'center';
+  /** cor do marca-texto atrás das linhas (títulos no estilo caderno); ausente = sem destaque */
+  highlight?: string | null;
 }
 
 export interface ImageEl extends Base {
@@ -83,7 +86,25 @@ export const FONT_FAMILY: Record<FontKind, string> = {
   sans: "Inter, system-ui, sans-serif",
   mao: "Caveat, 'Comic Sans MS', cursive",
   serif: "Fraunces, Georgia, serif",
+  cursiva: "'Kaushan Script', 'Segoe Script', cursive",
+  escrita: "'Shantell Sans', 'Segoe Print', 'Comic Sans MS', cursive",
 };
+export const FONT_WEIGHT: Record<FontKind, number> = { sans: 400, mao: 600, serif: 400, cursiva: 400, escrita: 400 };
+export const FONT_LABEL: Record<FontKind, string> = {
+  cursiva: 'Cursiva (títulos)',
+  escrita: 'Escrita à mão',
+  mao: 'Manuscrita rápida',
+  sans: 'Moderna',
+  serif: 'Clássica',
+};
+/** Carrega as fontes de mão antes de desenhar no canvas (o canvas não pede a fonte sozinho). */
+export function loadHandFonts() {
+  const f = document.fonts;
+  if (!f) return Promise.resolve();
+  return Promise.all(
+    ["400 20px 'Kaushan Script'", "400 20px 'Shantell Sans'", '600 20px Caveat'].map((q) => f.load(q, 'Aáç').catch(() => [])),
+  ).then(() => undefined);
+}
 export const LINE_HEIGHT = 1.3;
 
 // ---------------- Traços ----------------
@@ -210,7 +231,7 @@ function shapePath(el: ShapeEl) {
 
 let measureCtx: CanvasRenderingContext2D | null = null;
 export function textFont(el: Pick<TextEl, 'fontSize' | 'font'>) {
-  return `${el.font === 'mao' ? 600 : 400} ${el.fontSize}px ${FONT_FAMILY[el.font]}`;
+  return `${FONT_WEIGHT[el.font] ?? 400} ${el.fontSize}px ${FONT_FAMILY[el.font] ?? FONT_FAMILY.sans}`;
 }
 
 export function wrapText(el: TextEl): string[] {
@@ -258,6 +279,7 @@ export function localBox(el: El): Box {
   } else {
     const lines = wrapText(el);
     b = { x: el.x, y: el.y, w: el.w, h: Math.max(1, lines.length) * el.fontSize * LINE_HEIGHT };
+    if (el.highlight) b = { x: b.x - el.fontSize * 0.3, y: b.y, w: b.w + el.fontSize * 0.6, h: b.h };
   }
   localBoxCache.set(key, b);
   return b;
@@ -346,11 +368,40 @@ export function drawElement(ctx: CanvasRenderingContext2D, el: El) {
     ctx.textBaseline = 'top';
     const lh = el.fontSize * LINE_HEIGHT;
     const pad = (lh - el.fontSize) / 2;
-    wrapText(el).forEach((line, i) => {
+    const lines = wrapText(el);
+    if (el.highlight) drawTextHighlight(ctx, el, lines, lh, pad);
+    ctx.fillStyle = el.color;
+    lines.forEach((line, i) => {
       const dx = el.align === 'center' ? Math.max(0, (el.w - ctx.measureText(line).width) / 2) : 0;
       ctx.fillText(line, el.x + dx, el.y + pad + i * lh);
     });
   }
+  ctx.restore();
+}
+
+/** Faixa de marca-texto atrás de cada linha, com pontas arredondadas, como nos títulos de caderno. */
+function drawTextHighlight(ctx: CanvasRenderingContext2D, el: TextEl, lines: string[], lh: number, pad: number) {
+  const fs = el.fontSize;
+  ctx.save();
+  ctx.fillStyle = el.highlight!;
+  ctx.globalAlpha *= 0.8;
+  lines.forEach((line, i) => {
+    if (!line.trim()) return;
+    const w = ctx.measureText(line).width;
+    const dx = el.align === 'center' ? Math.max(0, (el.w - w) / 2) : 0;
+    const x = el.x + dx - fs * 0.28;
+    const y = el.y + pad + i * lh + fs * 0.22;
+    const bw = w + fs * 0.56;
+    const bh = fs * 0.92;
+    // leve inclinação e pontas diferentes deixam a faixa com cara de marcador de verdade
+    ctx.beginPath();
+    ctx.moveTo(x + bh * 0.5, y + fs * 0.04);
+    ctx.lineTo(x + bw - bh * 0.4, y);
+    ctx.quadraticCurveTo(x + bw + bh * 0.05, y + bh * 0.5, x + bw - bh * 0.35, y + bh);
+    ctx.lineTo(x + bh * 0.45, y + bh + fs * 0.03);
+    ctx.quadraticCurveTo(x - bh * 0.1, y + bh * 0.5, x + bh * 0.5, y + fs * 0.04);
+    ctx.fill();
+  });
   ctx.restore();
 }
 

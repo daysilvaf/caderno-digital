@@ -14,6 +14,7 @@ import { ExportDialog } from './ExportDialog';
 import { SyncBadge } from './SyncBadge';
 import { importPdf } from '../pdf';
 import { useOutside } from './useOutside';
+import { isDark, paperColors } from '../paper';
 import type { EditorApi, EditorStatus } from '../editor/Editor';
 import { Editor } from '../editor/Editor';
 import { Toolstrip } from '../editor/Toolstrip';
@@ -56,7 +57,7 @@ export function NotebookView({ sectionId, pageId }: { sectionId: string; pageId?
   const saving = useSaving();
   const { tool, setTool, settings, setSettings } = useToolState();
   const editorApi = useRef<EditorApi>(null);
-  const [status, setStatus] = useState<EditorStatus>({ canUndo: false, canRedo: false, selected: 0, canPaste: false, single: null, cropping: false });
+  const [status, setStatus] = useState<EditorStatus>({ canUndo: false, canRedo: false, selected: 0, canPaste: false, single: null, cropping: false, texts: 0 });
   const onStatus = useCallback((s: EditorStatus) => setStatus(s), []);
   const areaRef = useRef<HTMLDivElement>(null);
   const [areaW, setAreaW] = useState(800);
@@ -265,7 +266,7 @@ export function NotebookView({ sectionId, pageId }: { sectionId: string; pageId?
         {tagsOpen && <TagsPopover page={current} onClose={() => setTagsOpen(false)} right={150} />}
       </header>
 
-      <Toolstrip tool={tool} setTool={setTool} settings={settings} setSettings={setSettings} status={status} api={editorApi} onImportPdf={onImportPdf} />
+      <Toolstrip tool={tool} setTool={setTool} settings={settings} setSettings={setSettings} status={status} api={editorApi} onImportPdf={onImportPdf} dark={isDark(paperColors(current.template).bg)} />
       {pdfProgress && (
         <div className="toast" role="status">
           <span>

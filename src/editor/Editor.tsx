@@ -13,10 +13,11 @@ import type { El, ImageEl, LinkEl, ShapeEl, StrokeEl, TextEl } from './elements'
 import { getImage, preloadImages, onAssetLoaded, openAsset, saveFile, saveImage, kindOf } from '../assets';
 import type { Asset } from '../types';
 import { stickerSize } from '../stickers';
-import { drawElement, drawElements, elBox, eraseFromStroke, FONT_FAMILY, FULL_CROP, hitTest, IDENTITY, LINE_HEIGHT, samplePoints } from './elements';
+import { drawElement, drawElements, elBox, eraseFromStroke, FONT_FAMILY, FONT_WEIGHT, FULL_CROP, loadHandFonts, hitTest, IDENTITY, LINE_HEIGHT, samplePoints } from './elements';
 import type { Box, Mat, Pt } from './geom';
 import { apply, boxCorners, boxesIntersect, inBox, invert, matScale, mul, pointInPolygon, rotateAt, scaleAt, translate, unionBox } from './geom';
-import type { Tool, ToolSettings } from './tools';
+import type { TextStyle, Tool, ToolSettings } from './tools';
+import { presetStyle } from './tools';
 
 export interface EditorStatus {
   canUndo: boolean;
@@ -26,6 +27,8 @@ export interface EditorStatus {
   /** tipo do único elemento selecionado (para ações como recortar imagem ou abrir link) */
   single: El['type'] | null;
   cropping: boolean;
+  /** quantos textos digitados estão selecionados */
+  texts: number;
 }
 
 export interface EditorApi {
@@ -42,6 +45,10 @@ export interface EditorApi {
   sendToBack(): void;
   /** Aplica cor/espessura/opacidade aos elementos selecionados. */
   applyStyle(style: { color?: string; size?: number; opacity?: number }): void;
+  /** Troca fonte/tamanho/cor/destaque dos textos selecionados (ex.: virar letra cursiva). */
+  applyTextStyle(style: Partial<TextStyle>): void;
+  /** Passa todos os textos da página para letra de mão: grandes viram títulos cursivos, o resto escrita. */
+  handwritePage(): number;
   insertImageFiles(files: File[], at?: Pt): Promise<void>;
   insertSticker(id: string, w?: number, h?: number): void;
   insertLink(url: string, label: string): void;
@@ -214,6 +221,7 @@ export const Editor = forwardRef<EditorApi, Props>(function Editor({ page, scale
       canPaste: clipboard.length > 0,
       single: one?.type ?? null,
       cropping: !!cropRef.current,
+      texts: elsRef.current.filter((e) => e.type === 'text' && sel.has(e.id)).length,
     };
   };
   useEffect(() => {
@@ -386,6 +394,7 @@ export const Editor = forwardRef<EditorApi, Props>(function Editor({ page, scale
   // Fontes carregadas depois → redesenha os textos.
   useEffect(() => {
     document.fonts?.ready.then(() => renderContent());
+    loadHandFonts().then(() => renderContent());
   }, [renderContent]);
 
   // ---------- coordenadas ----------
@@ -435,6 +444,7 @@ export const Editor = forwardRef<EditorApi, Props>(function Editor({ page, scale
         color: t.color,
         fontSize: t.fontSize,
         font: t.font,
+        highlight: t.highlight ?? null,
         x: p.x,
         y: p.y - (t.fontSize * LINE_HEIGHT) / 2,
         w: Math.min(420, W - p.x - 24 > 120 ? W - p.x - 24 : 420),
@@ -474,6 +484,21 @@ export const Editor = forwardRef<EditorApi, Props>(function Editor({ page, scale
     },
     [editing],
   );
+
+  // Trocar o estilo de texto enquanto digita muda o texto que está sendo escrito.
+  const lastTexto = useRef(settings.texto);
+  useEffect(() => {
+    const prev = lastTexto.current;
+    lastTexto.current = settings.texto;
+    if (!editing || prev === settings.texto) return;
+    const t = settings.texto;
+    const next = elsRef.current.map((e) =>
+      e.id === editing.id && e.type === 'text' ? ({ ...e, font: t.font, fontSize: t.fontSize, color: t.color, highlight: t.highlight ?? null } as TextEl) : e,
+    );
+    elsRef.current = next;
+    dirty.current = true;
+    setElements(next);
+  }, [settings.texto, editing]);
 
   // ---------- ponteiro ----------
   const scroller = () => wrapRef.current?.closest('.canvas-area') as HTMLElement | null;
@@ -1039,6 +1064,25 @@ export const Editor = forwardRef<EditorApi, Props>(function Editor({ page, scale
         }),
       );
     },
+    applyTextStyle(style) {
+      const sel = selRef.current;
+      if (!elsRef.current.some((e) => e.type === 'text' && sel.has(e.id))) return;
+      commit(elsRef.current.map((el) => (el.type === 'text' && sel.has(el.id) ? ({ ...el, ...style } as TextEl) : el)));
+    },
+    handwritePage() {
+      const dark = isDark(paperColors(page.template).bg);
+      const title = presetStyle('titulo', dark);
+      let n = 0;
+      const next = elsRef.current.map((el) => {
+        if (el.type !== 'text') return el;
+        n++;
+        // texto grande (ou já destacado) é título; o resto vira escrita de caneta mantendo a cor
+        if (el.fontSize * matScale(el.m) >= 26 || el.highlight) return { ...el, font: 'cursiva', color: title.color, highlight: title.highlight } as TextEl;
+        return { ...el, font: 'escrita' } as TextEl;
+      });
+      if (n) commit(next);
+      return n;
+    },
     insertImageFiles,
     insertSticker(id, w, h) {
       const size = w && h ? { w, h } : stickerSize(id);
@@ -1097,6 +1141,8 @@ export const Editor = forwardRef<EditorApi, Props>(function Editor({ page, scale
     bringToFront: () => apiRef.current.bringToFront(),
     sendToBack: () => apiRef.current.sendToBack(),
     applyStyle: (s) => apiRef.current.applyStyle(s),
+    applyTextStyle: (s) => apiRef.current.applyTextStyle(s),
+    handwritePage: () => apiRef.current.handwritePage(),
     insertImageFiles: (f, at) => apiRef.current.insertImageFiles(f, at),
     insertSticker: (id, w, h) => apiRef.current.insertSticker(id, w, h),
     insertLink: (u, l) => apiRef.current.insertLink(u, l),
@@ -1225,8 +1271,9 @@ function TextEditor({ el, scale, onDone }: { el: TextEl; scale: number; ink: str
         textAlign: el.align ?? 'left',
         color: el.color,
         opacity: el.opacity,
-        fontFamily: FONT_FAMILY[el.font],
-        fontWeight: el.font === 'mao' ? 600 : 400,
+        fontFamily: FONT_FAMILY[el.font] ?? FONT_FAMILY.sans,
+        fontWeight: FONT_WEIGHT[el.font] ?? 400,
+        ...(el.highlight ? { background: el.highlight + 'aa', borderRadius: (el.fontSize * s * scale) / 2 } : null),
         fontSize: el.fontSize * s * scale,
         lineHeight: LINE_HEIGHT,
       }}
